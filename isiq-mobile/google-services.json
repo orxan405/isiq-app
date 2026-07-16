@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "510649926390",
+    "project_id": "isiq-app-d7db8",
+    "storage_bucket": "isiq-app-d7db8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:510649926390:android:7cf546cb9ee1f15b60a2d7",
+        "android_client_info": {
+          "package_name": "com.isiq.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "510649926390-o4ei9d16jrvlbepl68lq3em4puc7rekq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCEsHZ8CGQQj1bX39mrQoMgOFOz18Er_Mc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "510649926390-o4ei9d16jrvlbepl68lq3em4puc7rekq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,63 @@
+{
+  "expo": {
+    "name": "İşıq",
+    "slug": "orxan",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF4B6E"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.isiq.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Video zəng üçün kamera lazımdır",
+        "NSMicrophoneUsageDescription": "Zəng üçün mikrofon lazımdır"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#FF4B6E"
+      },
+      "package": "com.isiq.app",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-video",
+      "expo-web-browser",
+      "@react-native-community/datetimepicker",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.isiq.app",
+          "enableGooglePay": false
+        }
+      ]
+    ],
+    "scheme": "isiq",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d2d640c1-7e5c-457c-a51d-5e49b5ae4702"
+      }
+    },
+    "owner": "orxan405s-team"
+  }
+}
