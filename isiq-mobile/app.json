@@ -6,12 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FF4B6E"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.isiq.app",
@@ -21,12 +15,13 @@
       }
     },
     "android": {
+      "package": "com.isiq.app",
+      "minSdkVersion": 24,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#FF4B6E"
       },
-      "package": "com.isiq.app",
-      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
@@ -40,6 +35,14 @@
       "expo-video",
       "expo-web-browser",
       "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24
+          }
+        }
+      ],
       [
         "@stripe/stripe-react-native",
         {
