@@ -4,7 +4,7 @@ const Match = require('../models/Match');
 // @GET /api/v1/users/discover
 const discoverUsers = async (req, res) => {
   try {
-    const { minAge, maxAge, city, interests } = req.query;
+    const { minAge, maxAge, city, interests, gender } = req.query;
     const currentUser = await User.findById(req.user._id);
 
     // Match olan istifadəçiləri tap
@@ -34,20 +34,24 @@ const discoverUsers = async (req, res) => {
       isActive: true,
     };
 
-    if (currentUser.interestedIn && currentUser.interestedIn.length > 0) {
+    // Cins filtri — manual seçim varsa onu istifadə et, yoxsa default
+    if (gender) {
+      filter.gender = gender;
+    } else if (currentUser.interestedIn && currentUser.interestedIn.length > 0) {
       filter.gender = { $in: currentUser.interestedIn };
     }
 
-    filter.interestedIn = currentUser.gender;
-
+    // Yaş filtri
     if (minAge || maxAge) {
       filter.age = {};
       if (minAge) filter.age.$gte = parseInt(minAge);
       if (maxAge) filter.age.$lte = parseInt(maxAge);
     }
 
+    // Şəhər filtri
     if (city) filter.city = { $regex: city, $options: 'i' };
 
+    // Maraqlar filtri
     if (interests) {
       const interestList = interests.split(',').filter(Boolean);
       if (interestList.length > 0) {
@@ -56,7 +60,7 @@ const discoverUsers = async (req, res) => {
     }
 
     const users = await User.find(filter)
-      .select('name age gender city bio photos interests height weight birthDate job education pushToken')
+      .select('name age gender city bio photos interests height weight birthDate job education pushToken lastSeen')
       .limit(20);
 
     res.json({ success: true, count: users.length, users });
@@ -69,7 +73,7 @@ const discoverUsers = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select(
-      'name age gender city bio photos interests height weight birthDate job education'
+      'name age gender city bio photos interests height weight birthDate job education lastSeen'
     );
     if (!user) {
       return res.status(404).json({ success: false, message: 'İstifadəçi tapılmadı' });
@@ -125,7 +129,7 @@ const updateSettings = async (req, res) => {
     const { isActive } = req.body;
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { isActive },
+      { isActive, lastSeen: new Date() },
       { new: true }
     );
     res.json({ success: true, message: 'Tənzimləmələr yeniləndi', user });
@@ -162,4 +166,12 @@ const blockUser = async (req, res) => {
   }
 };
 
-module.exports = { discoverUsers, getUserById, updateProfile, updateSettings, deleteAccount, blockUser, updatePushToken };
+module.exports = {
+  discoverUsers,
+  getUserById,
+  updateProfile,
+  updateSettings,
+  deleteAccount,
+  blockUser,
+  updatePushToken,
+};
