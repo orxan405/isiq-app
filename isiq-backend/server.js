@@ -15,11 +15,11 @@ const paymentRoutes = require('./src/routes/payment');
 const notificationRoutes = require('./src/routes/notifications');
 const withdrawalRoutes = require('./src/routes/withdrawal');
 const adminRoutes = require('./src/routes/admin');
+const liveRoutes = require('./src/routes/live');
 const { errorHandler, notFound } = require('./src/middleware/errorHandler');
 const keepAlive = require('./src/utils/keepAlive');
 const User = require('./src/models/User');
 const { sendPushNotification } = require('./src/utils/pushNotification');
-const liveRoutes = require('./src/routes/live');
 
 dotenv.config();
 connectDB();
@@ -67,13 +67,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('sendMessage', async ({ matchId, senderId, receiverId, content }) => {
-    const message = {
-      matchId,
-      senderId,
-      receiverId,
-      content,
-      createdAt: new Date(),
-    };
+    const message = { matchId, senderId, receiverId, content, createdAt: new Date() };
     io.to(receiverId).emit('newMessage', message);
     io.to(senderId).emit('messageSent', message);
   });
@@ -89,13 +83,8 @@ io.on('connection', (socket) => {
   // WebRTC Signaling
   socket.on('call:start', async ({ matchId, callerId, receiverId, type, callerName }) => {
     console.log(`Zəng başladı: ${callerId} → ${receiverId} (${type})`);
+    io.to(receiverId).emit('call:incoming', { matchId, callerId, type, callerName });
 
-    // Socket ilə bildiriş
-    io.to(receiverId).emit('call:incoming', {
-      matchId, callerId, type, callerName,
-    });
-
-    // Push bildiriş göndər
     try {
       const receiver = await User.findById(receiverId);
       if (receiver?.pushToken) {
@@ -112,17 +101,14 @@ io.on('connection', (socket) => {
   });
 
   socket.on('call:accept', ({ matchId, callerId, receiverId }) => {
-    console.log(`Zəng qəbul edildi: ${receiverId} → ${callerId}`);
     io.to(callerId).emit('call:accepted', { matchId, receiverId });
   });
 
   socket.on('call:reject', ({ callerId, receiverId }) => {
-    console.log(`Zəng rədd edildi: ${receiverId} → ${callerId}`);
     io.to(callerId).emit('call:rejected', { receiverId });
   });
 
   socket.on('call:end', ({ callerId, receiverId }) => {
-    console.log(`Zəng bitdi: ${callerId} ↔ ${receiverId}`);
     io.to(receiverId).emit('call:ended', { callerId });
     io.to(callerId).emit('call:ended', { callerId });
   });
@@ -137,6 +123,38 @@ io.on('connection', (socket) => {
 
   socket.on('call:ice', ({ candidate, receiverId }) => {
     io.to(receiverId).emit('call:ice', { candidate });
+  });
+
+  // Canlı Yayım Events
+  socket.on('live:start', ({ channelName, hostId, hostName, title, hasVideo }) => {
+    socket.join(`live_${channelName}`);
+    io.emit('live:new_stream', { channelName, hostId, hostName, title, hasVideo });
+    console.log(`Yayım başladı: ${channelName}`);
+  });
+
+  socket.on('live:end', ({ channelName }) => {
+    io.to(`live_${channelName}`).emit('live:end', { channelName });
+    console.log(`Yayım bitdi: ${channelName}`);
+  });
+
+  socket.on('live:join', ({ channelName, userId, userName }) => {
+    socket.join(`live_${channelName}`);
+    io.to(`live_${channelName}`).emit('live:viewer_join', { channelName, userName });
+    console.log(`${userName} yayıma qoşuldu: ${channelName}`);
+  });
+
+  socket.on('live:leave', ({ channelName, userId }) => {
+    socket.leave(`live_${channelName}`);
+    io.to(`live_${channelName}`).emit('live:viewer_leave', { channelName });
+  });
+
+  socket.on('live:gift', ({ channelName, gift, fromName, fromId }) => {
+    io.to(`live_${channelName}`).emit('live:gift', { channelName, gift, fromName, fromId });
+    console.log(`Hədiyyə: ${fromName} → ${channelName}: ${gift.emoji}`);
+  });
+
+  socket.on('live:comment', ({ channelName, text, fromName, fromId }) => {
+    io.to(`live_${channelName}`).emit('live:comment', { channelName, text, fromName });
   });
 
   socket.on('disconnect', () => {
