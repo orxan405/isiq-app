@@ -5,85 +5,73 @@ const Notification = require('../models/Notification');
 const { sendPushNotification } = require('../utils/pushNotification');
 
 // @GET /api/v1/messages/:matchId
-const getMessages = async (req, res) => {
+exports.getMessages = async (req, res) => {
   try {
-    const match = await Match.findOne({
-      _id: req.params.matchId,
-      users: req.user._id,
-      isActive: true,
-    });
+    const { matchId } = req.params;
 
+    const match = await Match.findById(matchId);
     if (!match) {
       return res.status(404).json({ success: false, message: 'Match tapılmadı' });
     }
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = 50;
-    const skip = (page - 1) * limit;
+    if (!match.users.includes(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'İcazə yoxdur' });
+    }
 
-    const messages = await Message.find({ matchId: req.params.matchId })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    const messages = await Message.find({ matchId })
+      .sort({ createdAt: 1 });
 
-    await Message.updateMany(
-      { matchId: req.params.matchId, receiverId: req.user._id, isRead: false },
-      { isRead: true, readAt: new Date() }
-    );
-
-    res.json({ success: true, count: messages.length, page, messages: messages.reverse() });
+    res.json({ success: true, messages });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // @POST /api/v1/messages/:matchId
-const sendMessage = async (req, res) => {
+exports.sendMessage = async (req, res) => {
   try {
+    const { matchId } = req.params;
     const { content } = req.body;
 
-    if (!content || content.trim() === '') {
+    if (!content || !content.trim()) {
       return res.status(400).json({ success: false, message: 'Mesaj boş ola bilməz' });
     }
 
-    const match = await Match.findOne({
-      _id: req.params.matchId,
-      users: req.user._id,
-      isActive: true,
-    });
-
+    const match = await Match.findById(matchId);
     if (!match) {
       return res.status(404).json({ success: false, message: 'Match tapılmadı' });
     }
 
+    if (!match.users.includes(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'İcazə yoxdur' });
+    }
+
+    // Alıcını tap
     const receiverId = match.users.find(
-      (id) => id.toString() !== req.user._id.toString()
+      (u) => u.toString() !== req.user._id.toString()
     );
 
     const message = await Message.create({
-      matchId: req.params.matchId,
+      matchId,
       senderId: req.user._id,
       receiverId,
       content: content.trim(),
     });
 
-    match.lastMessage = content.trim();
-    match.lastMessageAt = new Date();
-    match.lastMessageBy = req.user._id;
-    await match.save();
-
-    const io = req.app.get('io');
-    io.to(receiverId.toString()).emit('newMessage', message);
-    io.to(req.user._id.toString()).emit('messageSent', message);
+    // Match-in son mesajını yenilə
+    await Match.findByIdAndUpdate(matchId, {
+      lastMessage: content.trim(),
+      lastMessageAt: new Date(),
+    });
 
     // Bildiriş yarat
     await Notification.create({
       userId: receiverId,
       type: 'message',
       fromUserId: req.user._id,
-      matchId: req.params.matchId,
-      title: '💬 Yeni Mesaj',
-      body: `${req.user.name}: ${content.trim()}`,
+      matchId,
+      title: `💬 ${req.user.name}`,
+      body: content.trim().substring(0, 100),
     });
 
     // Push bildiriş göndər
@@ -92,64 +80,57 @@ const sendMessage = async (req, res) => {
       try {
         await sendPushNotification(
           receiver.pushToken,
-          '💬 Yeni Mesaj',
-          `${req.user.name}: ${content.trim()}`,
-          { type: 'message', matchId: req.params.matchId }
+          `💬 ${req.user.name}`,
+          content.trim().substring(0, 100),
+          {
+            type: 'message',
+            matchId: matchId.toString(),
+            userId: req.user._id.toString(),
+          }
         );
       } catch (pushError) {
-        console.log('Push bildiriş xətası:', pushError.message);
+        console.log('Push xətası:', pushError.message);
       }
     }
 
-    res.status(201).json({
-      success: true,
-      message,
-      coinInfo: {
-        free: true,
-        freeMessagesLeft: 999,
-        coins: 0,
-      },
-    });
+    res.status(201).json({ success: true, message });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// @GET /api/v1/messages/unread/count
-const getUnreadCount = async (req, res) => {
+// @DELETE /api/v1/messages/:messageId
+exports.deleteMessage = async (req, res) => {
   try {
-    const count = await Message.countDocuments({
-      receiverId: req.user._id,
-      isRead: false,
-    });
-    res.json({ success: true, count });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// @DELETE /api/v1/messages/:id
-const deleteMessage = async (req, res) => {
-  try {
-    const message = await Message.findOne({
-      _id: req.params.id,
-      senderId: req.user._id,
-    });
+    const message = await Message.findById(req.params.messageId);
 
     if (!message) {
       return res.status(404).json({ success: false, message: 'Mesaj tapılmadı' });
     }
 
-    const tenMinutes = 10 * 60 * 1000;
-    if (Date.now() - message.createdAt > tenMinutes) {
-      return res.status(400).json({ success: false, message: '10 dəqiqə keçib, silinə bilməz' });
+    if (message.senderId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Yalnız öz mesajınızı silə bilərsiniz' });
     }
 
-    await message.deleteOne();
+    await Message.findByIdAndDelete(req.params.messageId);
+
     res.json({ success: true, message: 'Mesaj silindi' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-module.exports = { getMessages, sendMessage, getUnreadCount, deleteMessage };
+// @GET /api/v1/messages/unread/count
+exports.getUnreadCount = async (req, res) => {
+  try {
+    const count = await Notification.countDocuments({
+      userId: req.user._id,
+      type: 'message',
+      isRead: false,
+    });
+
+    res.json({ success: true, count });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
