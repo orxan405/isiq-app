@@ -19,6 +19,7 @@ const { errorHandler, notFound } = require('./src/middleware/errorHandler');
 const keepAlive = require('./src/utils/keepAlive');
 const User = require('./src/models/User');
 const { sendPushNotification } = require('./src/utils/pushNotification');
+const liveRoutes = require('./src/routes/live');
 
 dotenv.config();
 connectDB();
@@ -53,6 +54,7 @@ app.use('/api/v1/payment', paymentRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/withdrawal', withdrawalRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/live', liveRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
