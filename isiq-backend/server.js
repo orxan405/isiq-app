@@ -17,6 +17,8 @@ const withdrawalRoutes = require('./src/routes/withdrawal');
 const adminRoutes = require('./src/routes/admin');
 const { errorHandler, notFound } = require('./src/middleware/errorHandler');
 const keepAlive = require('./src/utils/keepAlive');
+const User = require('./src/models/User');
+const { sendPushNotification } = require('./src/utils/pushNotification');
 
 dotenv.config();
 connectDB();
@@ -83,11 +85,28 @@ io.on('connection', (socket) => {
   });
 
   // WebRTC Signaling
-  socket.on('call:start', ({ matchId, callerId, receiverId, type, callerName }) => {
+  socket.on('call:start', async ({ matchId, callerId, receiverId, type, callerName }) => {
     console.log(`Zəng başladı: ${callerId} → ${receiverId} (${type})`);
+
+    // Socket ilə bildiriş
     io.to(receiverId).emit('call:incoming', {
       matchId, callerId, type, callerName,
     });
+
+    // Push bildiriş göndər
+    try {
+      const receiver = await User.findById(receiverId);
+      if (receiver?.pushToken) {
+        await sendPushNotification(
+          receiver.pushToken,
+          `📞 ${callerName} zəng edir`,
+          `${type === 'video' ? '📹 Video' : '🎤 Səs'} zəngi`,
+          { type: 'call', matchId, callerId, callerName, callType: type }
+        );
+      }
+    } catch (error) {
+      console.log('Push zəng xətası:', error.message);
+    }
   });
 
   socket.on('call:accept', ({ matchId, callerId, receiverId }) => {
