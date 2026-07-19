@@ -6,8 +6,8 @@ const User = require('../models/User');
 const Match = require('../models/Match');
 const Message = require('../models/Message');
 const WithdrawalRequest = require('../models/WithdrawalRequest');
-const CoinTransaction = require('../models/CoinTransaction');
 const Notification = require('../models/Notification');
+const CoinTransaction = require('../models/CoinTransaction');
 
 // @GET /api/v1/admin/stats
 router.get('/stats', protect, admin, async (req, res) => {
@@ -23,14 +23,7 @@ router.get('/stats', protect, admin, async (req, res) => {
 
     res.json({
       success: true,
-      stats: {
-        users,
-        matches,
-        messages,
-        pendingWithdrawals,
-        approvedWithdrawals,
-        rejectedWithdrawals,
-      },
+      stats: { users, matches, messages, pendingWithdrawals, approvedWithdrawals, rejectedWithdrawals },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -85,6 +78,32 @@ router.get('/users/:id/details', protect, admin, async (req, res) => {
       stats: { matches, messages, withdrawals: withdrawals.length, notifications },
       withdrawalHistory: withdrawals,
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @PUT /api/v1/admin/users/:id/update
+router.put('/users/:id/update', protect, admin, async (req, res) => {
+  try {
+    const allowedFields = ['name', 'email', 'age', 'city', 'bio', 'coins', 'isPremium', 'isActive'];
+    const updates = {};
+
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    });
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true, runValidators: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'İstifadəçi tapılmadı' });
+    }
+
+    res.json({ success: true, message: 'İstifadəçi yeniləndi', user });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -166,7 +185,6 @@ router.put('/withdrawals/:id/approve', protect, admin, async (req, res) => {
 
     res.json({ success: true, message: 'Çıxarış təsdiqləndi', withdrawal });
   } catch (error) {
-    console.log('Approve xətası:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -193,7 +211,24 @@ router.put('/withdrawals/:id/reject', protect, admin, async (req, res) => {
 
     res.json({ success: true, message: 'Çıxarış rədd edildi', withdrawal: updated });
   } catch (error) {
-    console.log('Reject xətası:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @GET /api/v1/admin/notifications
+router.get('/notifications', protect, admin, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const notifications = await Notification.find()
+      .populate('userId', 'name email')
+      .populate('fromUserId', 'name email')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    const total = await Notification.countDocuments();
+    res.json({ success: true, notifications, total });
+  } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -213,24 +248,6 @@ router.get('/transactions', protect, admin, async (req, res) => {
 
     const total = await CoinTransaction.countDocuments(filter);
     res.json({ success: true, transactions, total });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// @GET /api/v1/admin/notifications
-router.get('/notifications', protect, admin, async (req, res) => {
-  try {
-    const { page = 1, limit = 20 } = req.query;
-    const notifications = await Notification.find()
-      .populate('userId', 'name email')
-      .populate('fromUserId', 'name email')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    const total = await Notification.countDocuments();
-    res.json({ success: true, notifications, total });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
